@@ -807,7 +807,6 @@ async fn get_liked_videos(
 #[tauri::command]
 async fn get_collected_videos(
     state: State<'_, AppState>,
-    sec_uid: String,
     cursor: i64,
     count: u32,
 ) -> Result<serde_json::Value, String> {
@@ -821,31 +820,10 @@ async fn get_collected_videos(
         }
     };
 
-    // 如果前端未提供 sec_uid，从当前用户信息中获取
-    let sec_uid = if sec_uid.trim().is_empty() {
-        match client.get_current_user().await {
-            Ok(user) if !user.sec_uid.is_empty() => {
-                log::info!("[CollectedVideos] 从 get_current_user 获取到 sec_uid: {}", user.sec_uid);
-                user.sec_uid
-            }
-            Ok(_) => {
-                log::warn!("[CollectedVideos] get_current_user 返回的 sec_uid 为空");
-                String::new()
-            }
-            Err(e) => {
-                log::warn!("[CollectedVideos] get_current_user 失败: {}", e);
-                String::new()
-            }
-        }
-    } else {
-        log::info!("[CollectedVideos] 使用前端传入的 sec_uid: {}", sec_uid.trim());
-        sec_uid.trim().to_string()
-    };
-
-    log::info!("[CollectedVideos] 最终 sec_uid: '{}', cursor: {}, count: {}", sec_uid, cursor, count);
+    log::info!("[CollectedVideos] 请求收藏列表: cursor={}, count={}", cursor, count);
 
     match client
-        .get_collected_videos_python_style(&sec_uid, cursor, count)
+        .get_collected_videos_python_style(cursor, count)
         .await
     {
         Ok(videos) if !videos.is_empty() => {
@@ -1323,7 +1301,6 @@ async fn download_liked_videos(
 #[tauri::command]
 async fn download_collected_videos(
     state: State<'_, AppState>,
-    sec_uid: String,
     count: u32,
 ) -> Result<serde_json::Value, String> {
     let client = match get_client(&state).await {
@@ -1336,29 +1313,9 @@ async fn download_collected_videos(
         }
     };
 
-    // 如果前端未提供 sec_uid，从当前用户信息中获取
-    let sec_uid = if sec_uid.trim().is_empty() {
-        match client.get_current_user().await {
-            Ok(user) if !user.sec_uid.is_empty() => {
-                log::info!("[DownloadCollected] 从 get_current_user 获取到 sec_uid: {}", user.sec_uid);
-                user.sec_uid
-            }
-            Ok(_) => {
-                log::warn!("[DownloadCollected] get_current_user 返回的 sec_uid 为空");
-                String::new()
-            }
-            Err(e) => {
-                log::warn!("[DownloadCollected] get_current_user 失败: {}", e);
-                String::new()
-            }
-        }
-    } else {
-        sec_uid.trim().to_string()
-    };
+    log::info!("[DownloadCollected] 请求批量下载 {} 个收藏视频", count);
 
-    log::info!("[DownloadCollected] 最终 sec_uid: '{}', count: {}", sec_uid, count);
-
-    let (videos, _, _) = match client.get_collected_videos(&sec_uid, 0, count).await {
+    let (videos, _, _) = match client.get_collected_videos(0, count).await {
         Ok(result) => result,
         Err(e) => {
             return Ok(serde_json::json!({

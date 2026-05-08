@@ -921,41 +921,65 @@ impl DouyinClient {
 
     async fn request_collected_videos_response(
         &self,
-        sec_uid: &str,
         max_cursor: i64,
         count: u32,
     ) -> Result<serde_json::Value> {
-        let mut params = HashMap::new();
-        params.insert("max_cursor", max_cursor.to_string());
-        params.insert("count", count.to_string());
-        if !sec_uid.is_empty() {
-            params.insert("sec_user_id", sec_uid.to_string());
-        }
+        let url = "https://www.douyin.com/aweme/v1/web/aweme/listcollection/";
 
-        let mut headers = HashMap::new();
+        // 构建 query string 参数（通用参数，与 curl 一致）
+        let mut all_params = crate::config::get_common_params();
+
+        // 构建 POST body（只包含业务参数，与 curl --data-raw 'count=10&cursor=0' 一致）
+        let mut body_params = HashMap::new();
+        body_params.insert("count".to_string(), count.to_string());
+        body_params.insert("cursor".to_string(), max_cursor.to_string());
+
+        let mut headers = crate::config::get_common_headers(&self.config.cookie);
         headers.insert(
             "Referer".to_string(),
-            "https://www.douyin.com/user/self?from_tab_name=main&showTab=favorite_collection"
-                .to_string(),
+            "https://www.douyin.com/user/self?from_tab_name=main".to_string(),
+        );
+        headers.insert(
+            "Content-Type".to_string(),
+            "application/x-www-form-urlencoded; charset=UTF-8".to_string(),
+        );
+        headers.insert("Origin".to_string(), "https://www.douyin.com".to_string());
+
+        // enrich_request 补充 msToken、verifyFp、fp、webid 等
+        self.enrich_request(&mut all_params, &mut headers).await;
+
+        log::info!(
+            "[CollectedVideos] POST url={}, body_count={}, body_cursor={}",
+            url, count, max_cursor
         );
 
-        let response = self
-            .request_raw_json_with_options(
-                "https://www.douyin.com/aweme/v1/web/aweme/listcollection/",
-                Some(params),
-                "GET",
-                Some(headers),
-                true,
-            )
-            .await?;
-
-        let status_code = response["status_code"].as_i64().unwrap_or(0);
-        if status_code != 0 {
-            let status_msg = response["status_msg"].as_str().unwrap_or("unknown error");
-            return Err(anyhow!("API error: {}", status_msg));
+        // POST: query string 带通用参数，body 带业务参数
+        let mut req = self.client.post(url).query(&all_params).form(&body_params);
+        for (key, value) in &headers {
+            req = req.header(key, value);
         }
 
-        Ok(response)
+        let response = req.send().await.map_err(|e| {
+            log::error!("[CollectedVideos] request failed: {}", e);
+            anyhow!("HTTP request failed: {}", e)
+        })?;
+
+        if !response.status().is_success() {
+            return Err(anyhow!("HTTP error: {}", response.status()));
+        }
+
+        let json = response.json::<serde_json::Value>().await.map_err(|e| {
+            log::error!("[CollectedVideos] JSON parse failed: {}", e);
+            anyhow!("JSON parse failed: {}", e)
+        })?;
+
+        let status_code = json["status_code"].as_i64().unwrap_or(0);
+        if status_code != 0 {
+            let status_msg = json["status_msg"].as_str().unwrap_or("unknown error");
+            return Err(anyhow!("API error: {} (code={})", status_msg, status_code));
+        }
+
+        Ok(json)
     }
 
     pub async fn get_liked_videos_python_style(
@@ -981,12 +1005,11 @@ impl DouyinClient {
 
     pub async fn get_collected_videos_python_style(
         &self,
-        sec_uid: &str,
         max_cursor: i64,
         count: u32,
     ) -> Result<Vec<LikedVideoItem>> {
         let response = self
-            .request_collected_videos_response(sec_uid, max_cursor, count)
+            .request_collected_videos_response(max_cursor, count)
             .await?;
 
         Ok(response["aweme_list"]
@@ -1003,12 +1026,11 @@ impl DouyinClient {
     /// 获取收藏视频列表（返回 VideoInfo，用于批量下载）
     pub async fn get_collected_videos(
         &self,
-        sec_uid: &str,
         max_cursor: i64,
         count: u32,
     ) -> Result<(Vec<VideoInfo>, i64, bool)> {
         let response = self
-            .request_collected_videos_response(sec_uid, max_cursor, count)
+            .request_collected_videos_response(max_cursor, count)
             .await?;
 
         let aweme_list = response["aweme_list"].as_array();
