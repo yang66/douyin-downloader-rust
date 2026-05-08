@@ -183,7 +183,9 @@ function setupEventListeners() {
 
     async function checkDouyinClipboard() {
         try {
-            var text = await fetch('/api/read_clipboard').then(function (r) { return r.text(); });
+            var resp = await fetch('/api/read_clipboard');
+            var result = await resp.json();
+            var text = result && result.text || '';
             if (!text || !isDouyinUrl(text)) return;
             var url = extractDouyinUrl(text);
             if (!url || url === lastClipboardUrl) return;

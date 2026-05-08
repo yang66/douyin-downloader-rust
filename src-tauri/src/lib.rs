@@ -23,6 +23,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::{Emitter, Manager, State};
+use tauri_plugin_clipboard_manager::ClipboardExt;
 use tokio::sync::{mpsc, Mutex};
 use url::Url;
 
@@ -1029,8 +1030,7 @@ async fn read_clipboard(
 
     let clipboard = app_handle.clipboard();
     match clipboard.read_text() {
-        Ok(Some(text)) => Ok(text),
-        Ok(None) => Ok(String::new()),
+        Ok(text) => Ok(text),
         Err(e) => {
             log::warn!("读取剪切板失败: {}", e);
             Ok(String::new())

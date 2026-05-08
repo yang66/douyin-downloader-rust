@@ -894,7 +894,8 @@
         }
 
         if (path === '/api/read_clipboard') {
-            return invoke('read_clipboard');
+            const result = await invoke('read_clipboard');
+            return { success: true, text: result || '' };
         }
 
         console.warn('[Tauri Adapter] Unmatched API:', method, path);
