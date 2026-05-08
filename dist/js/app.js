@@ -1738,10 +1738,14 @@ async function downloadCollectedVideos() {
             CollectedDataCache.currentDisplayType = 'collected';
             showToast('获取到 ' + result.data.length + ' 个收藏视频', 'success');
         } else {
-            showToast('获取收藏视频失败，请先登录抖音账号', 'error');
-            addLog('收藏视频需要登录态，请点击设置 → 登录抖音账号', 'warning');
+            showToast(result.message || '获取收藏视频失败', 'error');
+            addLog('收藏视频失败: ' + (result.message || '未知错误'), 'warning');
+            console.error('[CollectedVideos] API error:', result);
         }
-    } catch (error) { showToast('获取收藏视频失败，请先登录抖音账号', 'error'); }
+    } catch (error) {
+        showToast('获取收藏视频失败: ' + error, 'error');
+        console.error('[CollectedVideos] Exception:', error);
+    }
     finally { setButtonLoading('download-collected-btn', false); }
 }
 

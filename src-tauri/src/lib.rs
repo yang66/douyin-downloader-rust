@@ -824,12 +824,25 @@ async fn get_collected_videos(
     // 如果前端未提供 sec_uid，从当前用户信息中获取
     let sec_uid = if sec_uid.trim().is_empty() {
         match client.get_current_user().await {
-            Ok(user) if !user.sec_uid.is_empty() => user.sec_uid,
-            _ => String::new(),
+            Ok(user) if !user.sec_uid.is_empty() => {
+                log::info!("[CollectedVideos] 从 get_current_user 获取到 sec_uid: {}", user.sec_uid);
+                user.sec_uid
+            }
+            Ok(_) => {
+                log::warn!("[CollectedVideos] get_current_user 返回的 sec_uid 为空");
+                String::new()
+            }
+            Err(e) => {
+                log::warn!("[CollectedVideos] get_current_user 失败: {}", e);
+                String::new()
+            }
         }
     } else {
+        log::info!("[CollectedVideos] 使用前端传入的 sec_uid: {}", sec_uid.trim());
         sec_uid.trim().to_string()
     };
+
+    log::info!("[CollectedVideos] 最终 sec_uid: '{}', cursor: {}, count: {}", sec_uid, cursor, count);
 
     match client
         .get_collected_videos_python_style(&sec_uid, cursor, count)
@@ -837,6 +850,7 @@ async fn get_collected_videos(
     {
         Ok(videos) if !videos.is_empty() => {
             let count = videos.len();
+            log::info!("[CollectedVideos] 成功获取 {} 个收藏视频", count);
             Ok(serde_json::json!({
                 "success": true,
                 "data": videos,
@@ -845,7 +859,7 @@ async fn get_collected_videos(
         }
         Ok(_) => Ok(serde_json::json!({
             "success": false,
-            "message": "获取收藏视频失败。该接口需要登录态，请确认Cookie有效且包含完整的登录信息。如果Cookie已过期请重新获取。"
+            "message": "收藏列表为空，请确认账号有收藏的视频。"
         })),
         Err(e) => Ok(serde_json::json!({
             "success": false,
@@ -1325,12 +1339,24 @@ async fn download_collected_videos(
     // 如果前端未提供 sec_uid，从当前用户信息中获取
     let sec_uid = if sec_uid.trim().is_empty() {
         match client.get_current_user().await {
-            Ok(user) if !user.sec_uid.is_empty() => user.sec_uid,
-            _ => String::new(),
+            Ok(user) if !user.sec_uid.is_empty() => {
+                log::info!("[DownloadCollected] 从 get_current_user 获取到 sec_uid: {}", user.sec_uid);
+                user.sec_uid
+            }
+            Ok(_) => {
+                log::warn!("[DownloadCollected] get_current_user 返回的 sec_uid 为空");
+                String::new()
+            }
+            Err(e) => {
+                log::warn!("[DownloadCollected] get_current_user 失败: {}", e);
+                String::new()
+            }
         }
     } else {
         sec_uid.trim().to_string()
     };
+
+    log::info!("[DownloadCollected] 最终 sec_uid: '{}', count: {}", sec_uid, count);
 
     let (videos, _, _) = match client.get_collected_videos(&sec_uid, 0, count).await {
         Ok(result) => result,
