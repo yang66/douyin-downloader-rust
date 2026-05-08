@@ -410,3 +410,56 @@ const LikedDataCache = {
         return Date.now() - timestamp > maxAge;
     }
 };
+
+// ═══════════════════════════════════════════════
+// COLLECTED DATA CACHE
+// ═══════════════════════════════════════════════
+const CollectedDataCache = {
+    COLLECTED_VIDEOS_KEY: 'collected_videos_cache',
+    CACHE_VERSION: 1,
+    currentDisplayType: null,
+
+    saveCollectedVideos: function(videos, count) {
+        const timestamp = Date.now();
+        const normalizedVideos = Array.isArray(videos)
+            ? videos.map(video => Object.assign({}, video, { media_fetched_at: video.media_fetched_at || timestamp }))
+            : [];
+        const cacheData = { version: this.CACHE_VERSION, data: normalizedVideos, count: count, timestamp: timestamp };
+        localStorage.setItem(this.COLLECTED_VIDEOS_KEY, JSON.stringify(cacheData));
+        _log(`已缓存 ${normalizedVideos.length} 个收藏视频`);
+    },
+
+    getCollectedVideos: function() {
+        try {
+            const cached = localStorage.getItem(this.COLLECTED_VIDEOS_KEY);
+            if (cached) {
+                const cacheData = JSON.parse(cached);
+                if (cacheData.version !== this.CACHE_VERSION) {
+                    localStorage.removeItem(this.COLLECTED_VIDEOS_KEY);
+                    _log('收藏视频缓存版本已过期，已自动清理');
+                    return null;
+                }
+                if (VideoStorage.isMediaExpired(cacheData.timestamp)) {
+                    localStorage.removeItem(this.COLLECTED_VIDEOS_KEY);
+                    _log('收藏视频缓存中的媒体地址已过期，已自动清理');
+                    return null;
+                }
+                _log(`从缓存获取到 ${cacheData.data.length} 个收藏视频`);
+                return cacheData;
+            }
+        } catch (error) {
+            console.error('获取收藏视频缓存失败:', error);
+        }
+        return null;
+    },
+
+    clearAll: function() {
+        localStorage.removeItem(this.COLLECTED_VIDEOS_KEY);
+        _log('已清除所有收藏数据缓存');
+    },
+
+    isCacheExpired: function(timestamp, maxAge) {
+        maxAge = maxAge || (24 * 60 * 60 * 1000);
+        return Date.now() - timestamp > maxAge;
+    }
+};
