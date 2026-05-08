@@ -214,6 +214,12 @@ function setupSocketIO() {
         updateStatus('ready', '就绪');
         showToast(toastMessage, 'success');
         scrollToBottom();
+
+        // 如果"我的下载"页面当前可见，自动刷新列表
+        var myDownloadsSection = document.getElementById('myDownloadsSection');
+        if (myDownloadsSection && myDownloadsSection.style.display !== 'none' && typeof refreshMyDownloads === 'function') {
+            refreshMyDownloads();
+        }
     });
 
     socket.on('download_failed', function (data) {
@@ -315,6 +321,12 @@ function setupSocketIO() {
 
         updateActiveTasksCount();
         scrollToBottom();
+
+        // 如果"我的下载"页面当前可见，自动刷新列表
+        var myDownloadsSection = document.getElementById('myDownloadsSection');
+        if (myDownloadsSection && myDownloadsSection.style.display !== 'none' && typeof refreshMyDownloads === 'function') {
+            refreshMyDownloads();
+        }
     });
 
     // 批量下载取消事件
