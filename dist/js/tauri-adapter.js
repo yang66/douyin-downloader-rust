@@ -715,6 +715,36 @@
             });
         }
 
+        if (path === '/api/get_collected_videos') {
+            const result = await invoke('get_collected_videos', {
+                cursor: 0,
+                count: Number(body.count || params.count || 20)
+            });
+            const rawVideos = result && (result.data || result.videos);
+            const videos = normalizeVideos(rawVideos);
+
+            if (!Array.isArray(videos) || videos.length === 0) {
+                return {
+                    success: false,
+                    message: (result && result.message) || '获取收藏视频失败。该接口需要登录态，请确认Cookie有效且包含完整的登录信息。如果Cookie已过期请重新获取。'
+                };
+            }
+
+            return {
+                success: true,
+                data: videos,
+                count: Number(result && result.count) || videos.length,
+                cursor: Number(result && result.cursor) || 0,
+                has_more: Boolean(result && result.has_more)
+            };
+        }
+
+        if (path === '/api/download_collected') {
+            return invoke('download_collected_videos', {
+                count: Number(body.count || params.count || 20)
+            });
+        }
+
         if (path === '/api/cancel_download') {
             await invoke('cancel_download_task', {
                 taskId: body.task_id || body.taskId || ''
